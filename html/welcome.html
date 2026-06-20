@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>BookShelf — Your Reading Universe</title>
+  <link rel="stylesheet" href="/css/welcome.css"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+</head>
+<body>
+
+  <!-- ── NAVBAR ── -->
+  <nav class="navbar" id="navbar">
+    <div class="nav-logo">
+      <a href="/" class="logo">
+        <svg class="logo-icon" viewBox="0 0 40 40" fill="none">
+          <rect width="40" height="40" rx="8" fill="#1a1410"/>
+          <rect x="8"  y="8" width="8"  height="24" rx="2" fill="#c8793a"/>
+          <rect x="18" y="8" width="6"  height="24" rx="2" fill="#e8d9c0" opacity=".9"/>
+          <rect x="26" y="8" width="5"  height="24" rx="2" fill="#c8793a" opacity=".5"/>
+        </svg>
+        <span class="logo-text">Book<em>Shelf</em></span>
+      </a>
+    </div>
+    <ul class="nav-links">
+      <li><a href="#home" class="nav-link active">Home</a></li>
+      <li><a href="#features" class="nav-link">Features</a></li>
+      <li><a href="#how-it-works" class="nav-link">How it works</a></li>
+      <li><a href="#contact" class="nav-link">Contact</a></li>
+    </ul>
+    <a href="/html/login.html" class="btn-login-nav">Login</a>
+    <button class="hamburger" id="hamburger" aria-label="Menu">
+      <span></span><span></span><span></span>
+    </button>
+  </nav>
+
+  <!-- ── HERO SECTION ── -->
+  <section class="hero" id="home">
+    <div class="hero-content">
+      <span class="hero-badge">✦ Your personal reading universe</span>
+      <h1 class="hero-title">
+        Track every book.<br/>
+        <em>Read more.</em><br/>
+        Pay less.
+      </h1>
+      <p class="hero-desc">
+        Log what you've read, build your to-be-read wishlist,
+        and let AI find the cheapest price for your next book —
+        across Amazon, Flipkart &amp; every major store.
+      </p>
+      <div class="hero-cta">
+        <a href="login.html" class="btn-primary">
+          Start for free — it's yours
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </a>
+        <a href="#features" class="btn-ghost">See features</a>
+      </div>
+      <div class="hero-stats">
+        <div class="stat-pill">
+          <strong>24+</strong>
+          <span>Books tracked</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-pill">
+          <strong>AI-powered</strong>
+          <span>Price finder</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-pill">
+          <strong>Free</strong>
+          <span>Forever plan</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="hero-visual">
+      <div class="hero-glow"></div>
+      <img src="/Image/bg.png" alt="Vibrant book reader illustration" class="hero-img" loading="eager"/>
+    </div>
+  </section>
+
+  <!-- ── FEATURES STRIP ── -->
+  <section class="features" id="features">
+    <div class="features-inner">
+      <div class="feat-card">
+        <div class="feat-icon" style="background:#E3F8FF;color:#007BA7">📚</div>
+        <h3>Read shelf</h3>
+        <p>Log every book you finish — with your rating, notes, and date read. Your life in books.</p>
+      </div>
+      <div class="feat-card feat-card--highlight">
+        <div class="feat-icon" style="background:#FFF3E0;color:#E65100">🔖</div>
+        <h3>TBR to-do list</h3>
+        <p>Manage your to-be-read books like a task list. Prioritize, tag by genre, and never lose a recommendation.</p>
+        <span class="feat-badge">+ To-do list integrated</span>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon" style="background:#F3E8FF;color:#6B21A8">🤖</div>
+        <h3>AI price finder</h3>
+        <p>One click. AI searches Amazon, Flipkart, and more — returns links ranked by lowest price.</p>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon" style="background:#ECFDF5;color:#065F46">📊</div>
+        <h3>Reading stats</h3>
+        <p>See your yearly progress, genres you love, and reading streaks — all at a glance.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── HOW IT WORKS ── -->
+  <section class="how-it-works" id="how-it-works">
+    <p class="section-eyebrow">Simple as turning a page</p>
+    <h2 class="section-title">How BookShelf works</h2>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">01</div>
+        <h3>Add your books</h3>
+        <p>Search any title — BookShelf auto-fills the cover, author, and details from Open Library.</p>
+      </div>
+      <div class="step-arrow">→</div>
+      <div class="step">
+        <div class="step-num">02</div>
+        <h3>Track your TBR</h3>
+        <p>Queue up books you want to read. Treat it like a to-do list for your imagination.</p>
+      </div>
+      <div class="step-arrow">→</div>
+      <div class="step">
+        <div class="step-num">03</div>
+        <h3>Find the best price</h3>
+        <p>Hit "Find price" — AI scans every major store and shows you where to buy cheapest.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── QUOTE STRIP ── -->
+  <div class="quote-strip">
+    <span class="qs-mark">"</span>
+    A reader lives a thousand lives before he dies. The man who never reads lives only one.
+    <span class="qs-attr">— George R.R. Martin</span>
+  </div>
+
+  <!-- ── CTA BANNER ── -->
+  <section class="cta-banner">
+    <h2>Ready to own your reading life?</h2>
+    <p>Join readers who track smarter, read more, and spend less.</p>
+    <a href="login.html" class="btn-primary btn-primary--light">
+      Create your free shelf
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+    </a>
+  </section>
+
+  <!-- ── FOOTER ── -->
+  <footer class="footer">
+    <span class="logo-text" style="color: rgba(245,240,232,0.88);">Book<em>Shelf</em></span>
+    <p class="footer-copy">© 2024 BookShelf. Built with love for readers.</p>
+    <div class="footer-links">
+      <a href="#">Privacy</a>
+      <a href="#">Terms</a>
+      <a href="#">Contact</a>
+    </div>
+  </footer>
+
+  <script src="/js/welcome.js"></script>
+</body>
+</html>

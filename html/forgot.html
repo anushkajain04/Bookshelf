@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>BookShelf — Forgot Password</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/auth.css"/>
+</head>
+<body>
+<div class="page">
+
+  <aside class="panel-left" aria-hidden="true">
+    <div class="spines-wrap" id="spinesWrap"></div>
+    <div class="shelf-bar"></div>
+    <figure class="shelf-quote">
+      <blockquote>"Lost passwords are like lost bookmarks — the story goes on regardless."</blockquote>
+      <figcaption>— BookShelf</figcaption>
+    </figure>
+  </aside>
+
+  <main class="panel-right">
+    <div class="form-shell">
+
+      <a href="/" class="logo">
+        <svg class="logo-icon" viewBox="0 0 40 40" fill="none">
+          <rect width="40" height="40" rx="8" fill="#1a1410"/>
+          <rect x="8"  y="8" width="8"  height="24" rx="2" fill="#c8793a"/>
+          <rect x="18" y="8" width="6"  height="24" rx="2" fill="#e8d9c0" opacity=".9"/>
+          <rect x="26" y="8" width="5"  height="24" rx="2" fill="#c8793a" opacity=".5"/>
+        </svg>
+        <span class="logo-text">Book<em>Shelf</em></span>
+      </a>
+
+      <h1>Forgot password?</h1>
+      <p class="subtitle">Enter your email and we'll send you a reset link.</p>
+
+      <div class="alert hidden" id="alertBox" role="alert" aria-live="polite">
+        <svg class="alert-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="8" x2="12" y2="12"/>
+          <line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        <span id="alertMsg"></span>
+      </div>
+
+      <form id="forgotForm" novalidate>
+        <div class="field" id="fieldEmail">
+          <label for="email">Email address</label>
+          <div class="input-wrap">
+            <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/>
+              <polyline points="22,6 12,13 2,6"/>
+            </svg>
+            <input type="email" id="email" name="email" placeholder="you@example.com" autocomplete="email" required/>
+          </div>
+          <span class="field-error" id="emailError"></span>
+        </div>
+
+        <button type="submit" class="btn-primary" id="submitBtn">
+          <span class="btn-spinner"></span>
+          <span class="btn-label">Send reset link</span>
+        </button>
+
+        <div class="divider"><span>or</span></div>
+        <p class="signup-row"><a href="login.html" class="link-amber">Back to sign in</a></p>
+      </form>
+
+    </div>
+  </main>
+</div>
+
+<script>
+(function buildSpines() {
+  const wrap = document.getElementById('spinesWrap');
+  if (!wrap) return;
+  const colors  = ['#c8793a','#e8d9c0','#5a7a5c','#8b5e3c','#4a6a8a','#b8a06e','#7a5a8a','#3a6a5a'];
+  const heights = [130,165,145,185,135,158,148,172,128,162];
+  const widths  = [22,18,26,20,16,24,19,23];
+  for (let i = 0; i < 28; i++) {
+    const s = document.createElement('div');
+    s.className = 'spine';
+    s.style.cssText = `width:${widths[i%widths.length]}px;height:${heights[i%heights.length]}px;background:${colors[i%colors.length]};animation-delay:${(i*0.03).toFixed(2)}s`;
+    wrap.appendChild(s);
+  }
+})();
+
+const form     = document.getElementById('forgotForm');
+const emailEl  = document.getElementById('email');
+const emailErr = document.getElementById('emailError');
+const btn      = document.getElementById('submitBtn');
+const alertBox = document.getElementById('alertBox');
+const alertMsg = document.getElementById('alertMsg');
+
+function showAlert(msg, type) {
+  alertBox.className = 'alert ' + type;
+  alertMsg.textContent = msg;
+}
+function hideAlert() { alertBox.className = 'alert hidden'; }
+
+emailEl.addEventListener('input', () => {
+  emailEl.classList.remove('invalid');
+  emailErr.textContent = '';
+  hideAlert();
+});
+
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  hideAlert();
+
+  const val = emailEl.value.trim();
+  if (!val || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) {
+    emailEl.classList.add('invalid');
+    emailErr.textContent = 'Enter a valid email address.';
+    return;
+  }
+
+  btn.classList.add('loading');
+  btn.disabled = true;
+
+  try {
+    const res  = await fetch('/auth/forgot-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: val.toLowerCase() })
+    });
+    const data = await res.json();
+    // Always show success message (server never reveals if email exists)
+    showAlert(data.message || 'If that email is registered, a reset link has been sent.', 'success');
+    form.reset();
+  } catch {
+    showAlert('Network error — please try again.', 'error');
+  } finally {
+    btn.classList.remove('loading');
+    btn.disabled = false;
+  }
+});
+</script>
+</body>
+</html>

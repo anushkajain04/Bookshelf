@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>BookShelf — Dashboard</title>
+  <link rel="stylesheet" href="/css/dashboard.css"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+</head>
+<body>
+
+  <!-- ══ SIDEBAR ══ -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sb-top">
+      <a href="/" class="sb-logo">
+        <svg class="sb-logo-icon" viewBox="0 0 40 40" fill="none">
+          <rect width="40" height="40" rx="8" fill="#2B2118"/>
+          <rect x="8"  y="8" width="8"  height="24" rx="2" fill="#C8793A"/>
+          <rect x="18" y="8" width="6"  height="24" rx="2" fill="#E8D9C0" opacity=".9"/>
+          <rect x="26" y="8" width="5"  height="24" rx="2" fill="#C8793A" opacity=".5"/>
+        </svg>
+        <span class="sb-logo-text">Book<em>Shelf</em></span>
+      </a>
+      <button class="sb-close" id="sbClose" aria-label="Close menu">✕</button>
+    </div>
+
+    <nav class="sb-nav">
+      <a href="#" class="sb-link active" data-section="dashboard">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        Dashboard
+      </a>
+      <a href="#" class="sb-link" data-section="shelf">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        My shelf
+      </a>
+      <a href="#" class="sb-link" data-section="tbr">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+        TBR list
+      </a>
+      <a href="#" class="sb-link" data-section="prices">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        Best prices
+      </a>
+      <a href="#" class="sb-link" data-section="stats">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        Stats
+      </a>
+    </nav>
+
+    <div class="sb-bottom">
+      <div class="sb-user">
+        <div class="sb-avatar" id="sbAvatar">R</div>
+        <div class="sb-user-info">
+          <p class="sb-name" id="sbName">Reader</p>
+          <p class="sb-email" id="sbEmail"></p>
+        </div>
+      </div>
+      <a href="#" class="sb-logout" id="logoutBtn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        Sign out
+      </a>
+    </div>
+  </aside>
+
+  <!-- ══ OVERLAY ══ -->
+  <div class="overlay" id="overlay"></div>
+
+  <!-- ══ MAIN ══ -->
+  <main class="main" id="main">
+
+    <!-- TOP BAR -->
+    <header class="topbar">
+      <button class="hamburger-btn" id="menuBtn" aria-label="Open menu">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <div class="topbar-search">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" placeholder="Search books, authors…" id="searchInput" />
+      </div>
+      <button class="add-book-btn" id="addBookBtn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Add book
+      </button>
+    </header>
+
+    <!-- ══════════════ PAGE: DASHBOARD ══════════════ -->
+    <div id="page-dashboard" class="page active">
+
+      <!-- HERO -->
+      <section class="dash-hero">
+        <div class="hero-text">
+          <p class="hero-eyebrow" id="timeGreet">Good morning</p>
+          <h1 class="hero-name">Welcome back, <em id="heroName">Reader</em></h1>
+          <p class="hero-quote" id="dailyQuote">"A reader lives a thousand lives before he dies."</p>
+        </div>
+        <div class="hero-stats-row">
+          <div class="hstat">
+            <span class="hstat-val" id="statRead">0</span>
+            <span class="hstat-lbl">Books read</span>
+          </div>
+          <div class="hstat-div"></div>
+          <div class="hstat">
+            <span class="hstat-val" id="statTBR">0</span>
+            <span class="hstat-lbl">TBR queue</span>
+          </div>
+          <div class="hstat-div"></div>
+          <div class="hstat">
+            <span class="hstat-val" id="statYear">0</span>
+            <span class="hstat-lbl">This year</span>
+          </div>
+          <div class="hstat-div"></div>
+          <div class="hstat">
+            <span class="hstat-val" id="statRating">—</span>
+            <span class="hstat-lbl">Avg rating</span>
+          </div>
+        </div>
+        <div class="goal-row">
+          <div class="goal-label-row">
+            <span class="goal-txt" id="goalLabel">Reading goal</span>
+            <span class="goal-pct" id="goalPct">0 / 12 books</span>
+            <button class="goal-edit-btn" id="goalEditBtn" title="Edit goal">✎</button>
+          </div>
+          <div class="goal-track"><div class="goal-fill" id="goalFill" style="width:0%"></div></div>
+          <!-- Goal edit form (was missing from original HTML) -->
+          <div class="goal-edit-form hidden" id="goalEditForm">
+            <select id="goalType">
+              <option value="yearly">Yearly goal</option>
+              <option value="monthly">Monthly goal</option>
+            </select>
+            <input type="number" id="goalTarget" min="1" max="365" placeholder="e.g. 24"/>
+            <button class="goal-save-btn" id="goalSaveBtn">Save</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- CURRENTLY READING -->
+      <section class="section" id="sec-currently">
+        <div class="section-head">
+          <h2 class="section-title">Currently reading</h2>
+        </div>
+        <div id="currentReadWrap"></div>
+      </section>
+
+      <!-- RECOMMENDATIONS -->
+      <section class="section" id="sec-recommendations">
+        <div class="section-head">
+          <h2 class="section-title">Recommended for you</h2>
+          <div class="filter-pills" id="filterPills">
+            <button class="fpill active" data-genre="all">All</button>
+            <button class="fpill" data-genre="self-help">Self-help</button>
+            <button class="fpill" data-genre="fiction">Fiction</button>
+            <button class="fpill" data-genre="business">Business</button>
+            <button class="fpill" data-genre="philosophy">Philosophy</button>
+          </div>
+        </div>
+        <div class="rec-grid" id="recGrid"></div>
+      </section>
+
+    </div><!-- /page-dashboard -->
+
+    <!-- ══════════════ PAGE: MY SHELF + TBR ══════════════ -->
+    <div id="page-shelf" class="page">
+
+      <div class="page-hero shelf-hero">
+        <h1 class="page-hero-title">My Books</h1>
+        <p class="page-hero-sub">Track everything you've read and everything you want to read.</p>
+      </div>
+
+      <!-- TAB SWITCHER -->
+      <div class="tab-bar">
+        <button class="tab-btn active" data-tab="read">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          Books read
+          <span class="tab-count" id="tabCountRead">0</span>
+        </button>
+        <button class="tab-btn" data-tab="tbr">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+          To be read
+          <span class="tab-count" id="tabCountTBR">0</span>
+        </button>
+      </div>
+
+      <!-- TAB: BOOKS READ -->
+      <div id="tab-read" class="tab-panel active">
+        <div class="tab-toolbar">
+          <input class="tab-search" type="text" placeholder="Filter read books…" id="readSearch"/>
+          <select class="tab-sort" id="readSort">
+            <option value="recent">Recently added</option>
+            <option value="rating">Highest rated</option>
+            <option value="alpha">A → Z</option>
+          </select>
+        </div>
+        <div class="books-grid" id="readGrid"></div>
+        <div class="empty-state hidden" id="readEmpty">
+          <div class="empty-icon">📚</div>
+          <p class="empty-title">No books read yet</p>
+          <p class="empty-sub">Add your first book using the "Add book" button above.</p>
+        </div>
+      </div>
+
+      <!-- TAB: TBR -->
+      <div id="tab-tbr" class="tab-panel">
+        <div class="tab-toolbar">
+          <input class="tab-search" type="text" placeholder="Filter TBR list…" id="tbrSearch"/>
+          <select class="tab-sort" id="tbrSort">
+            <option value="recent">Recently added</option>
+            <option value="alpha">A → Z</option>
+          </select>
+        </div>
+        <div class="books-grid" id="tbrGrid"></div>
+        <div class="empty-state hidden" id="tbrEmpty">
+          <div class="empty-icon">🔖</div>
+          <p class="empty-title">Your TBR list is empty</p>
+          <p class="empty-sub">Browse recommendations and click + to add books here.</p>
+        </div>
+      </div>
+
+    </div><!-- /page-shelf -->
+
+    <!-- ══════════════ PAGE: BEST PRICES ══════════════ -->
+    <div id="page-prices" class="page">
+      <div class="page-hero">
+        <h1 class="page-hero-title">Best prices</h1>
+        <p class="page-hero-sub">Click a store link to compare prices and buy. Shows your TBR list by default.</p>
+      </div>
+      <div class="section" style="padding-top:0">
+        <!-- Store color legend -->
+        <div class="store-legend" id="priceLegend">
+          <span class="legend-item"><span class="store-dot" style="background:#FF9900"></span>Amazon</span>
+          <span class="legend-item"><span class="store-dot" style="background:#2874F0"></span>Flipkart</span>
+          <span class="legend-item"><span class="store-dot" style="background:#2CB9AA"></span>Bookswagon</span>
+          <span class="legend-note">Links open a search on each store — compare and buy at the best price.</span>
+        </div>
+        <div class="price-grid" id="priceGrid"></div>
+      </div>
+    </div>
+
+    <!-- ══════════════ PAGE: STATS ══════════════ -->
+    <div id="page-stats" class="page">
+      <div class="page-hero">
+        <h1 class="page-hero-title">Your stats</h1>
+        <p class="page-hero-sub">A snapshot of your reading life.</p>
+      </div>
+      <div class="section" style="padding-top:0">
+        <div class="stats-grid" id="statsGrid"></div>
+      </div>
+    </div>
+
+  </main><!-- /main -->
+
+  <!-- ══ ADD BOOK MODAL ══ -->
+  <div class="modal-backdrop" id="modalBackdrop">
+    <div class="modal" id="addModal">
+      <div class="modal-head">
+        <h3 class="modal-title">Add a book</h3>
+        <button class="modal-close" id="modalClose">✕</button>
+      </div>
+      <div class="modal-autofill">
+        <input type="text" placeholder="Search title to auto-fill…" id="autoFillInput"/>
+        <button class="btn-autofill" id="autoFillBtn">Search</button>
+      </div>
+      <div class="modal-form">
+        <div class="mf-row two">
+          <div class="mf-field">
+            <label>Title</label>
+            <input type="text" id="mTitle" placeholder="Book title"/>
+          </div>
+          <div class="mf-field">
+            <label>Author</label>
+            <input type="text" id="mAuthor" placeholder="Author name"/>
+          </div>
+        </div>
+        <div class="mf-row two">
+          <div class="mf-field">
+            <label>Genre</label>
+            <select id="mGenre">
+              <option>Self-help</option>
+              <option>Fiction</option>
+              <option>Non-fiction</option>
+              <option>Business</option>
+              <option>Philosophy</option>
+              <option>Science</option>
+              <option>Biography</option>
+            </select>
+          </div>
+          <div class="mf-field">
+            <label>Status</label>
+            <select id="mStatus">
+              <option value="READ">I've read this</option>
+              <option value="TBR">Want to read (TBR)</option>
+              <option value="READING">Currently reading</option>
+            </select>
+          </div>
+        </div>
+        <div class="mf-row">
+          <div class="mf-field">
+            <label>Total pages (optional)</label>
+            <input type="number" id="mPages" placeholder="e.g. 320" min="0"/>
+          </div>
+        </div>
+        <!-- Date finished field — shown only when status = READ -->
+        <div class="mf-row hidden" id="mDateField">
+          <div class="mf-field">
+            <label>Date finished</label>
+            <input type="date" id="mDateFinished"/>
+          </div>
+        </div>
+        <div class="mf-row">
+          <div class="mf-field">
+            <label>Your notes (optional)</label>
+            <textarea id="mNotes" placeholder="Key takeaways, quotes you loved…" rows="3"></textarea>
+          </div>
+        </div>
+        <!-- Rating row — shown only when status = READ -->
+        <div class="mf-rating hidden" id="mRatingRow">
+          <label>Rating (for books you've read)</label>
+          <div class="star-picker" id="starPicker">
+            <span class="star" data-val="1">★</span>
+            <span class="star" data-val="2">★</span>
+            <span class="star" data-val="3">★</span>
+            <span class="star" data-val="4">★</span>
+            <span class="star" data-val="5">★</span>
+          </div>
+        </div>
+        <button class="btn-save-book" id="saveBookBtn">Save to shelf</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ CURRENTLY READING LIMIT MODAL ══ -->
+  <div class="modal-backdrop" id="limitModalBackdrop">
+    <div class="modal modal-sm" id="limitModal">
+      <div class="modal-head">
+        <h3 class="modal-title">You're already reading 2 books</h3>
+        <button class="modal-close" id="limitModalClose">✕</button>
+      </div>
+      <div class="modal-form">
+        <p class="modal-helper-text">To start a new book, choose what to do with one of your current reads:</p>
+        <div id="limitModalList"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ RATE BOOK MODAL ══ -->
+  <div class="modal-backdrop" id="rateModalBackdrop">
+    <div class="modal modal-sm" id="rateModal">
+      <div class="modal-head">
+        <h3 class="modal-title" id="rateModalBookTitle">How was it?</h3>
+        <button class="modal-close" id="rateModalClose">✕</button>
+      </div>
+      <div class="modal-form">
+        <div class="star-picker" id="rateStarPicker">
+          <span class="star" data-val="1">★</span>
+          <span class="star" data-val="2">★</span>
+          <span class="star" data-val="3">★</span>
+          <span class="star" data-val="4">★</span>
+          <span class="star" data-val="5">★</span>
+        </div>
+        <div class="rate-modal-actions">
+          <button class="btn-save-book" id="rateSaveBtn">Save rating</button>
+          <button class="btn-skip" id="rateSkipBtn">Skip</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ TOAST ══ -->
+  <div class="toast" id="toast"></div>
+
+  <!-- ══ signout warning ══ -->
+  <div class="modal-backdrop" id="signoutModalBackdrop">
+    <div class="modal modal-sm" id="signoutModal">
+      <div class="modal-head">
+        <h3 class="modal-title">Are you sure you want to sign out?</h3>
+        <button class="modal-close" id="signoutModalClose">✕</button>
+      </div>
+      <div class="modal-form">
+        <p class="modal-helper-text">You'll need to sign in again to access your dashboard.<br><p id="logoutStatus" class="logout-status"></p>
+        </p>
+        
+        <div class="signout-modal-actions">
+          <button class="btn-signout" id="confirmSignoutBtn">Sign out</button>
+          <button class="btn-cancel" id="cancelSignoutBtn">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/dashboard.js"></script>
+</body>
+</html>
