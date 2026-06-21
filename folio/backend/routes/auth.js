@@ -60,6 +60,7 @@ router.post('/register', requireGuest, async (req, res) => {
 
     // ── Log in immediately after registering ──
     req.session.userId    = user._id;
+    req.session.lastName  = user.lastName;
     req.session.firstName = user.firstName;
     req.session.email     = user.email;
 
@@ -108,6 +109,7 @@ router.post('/login', requireGuest, async (req, res) => {
     // ── Set session ──
     req.session.userId    = user._id;
     req.session.firstName = user.firstName;
+    req.session.lastName  = user.lastName;
     req.session.email     = user.email;
 
     // ── Remember me: 30 days vs 1 day ──
@@ -118,6 +120,7 @@ router.post('/login', requireGuest, async (req, res) => {
     return res.status(200).json({
       message:   'Logged in successfully!',
       firstName: user.firstName,
+      lastName:  user.lastName,
       email:     user.email,
       redirect:  '/dashboard'
     });
@@ -259,6 +262,7 @@ router.get('/me', (req, res) => {
   res.json({
     loggedIn:  true,
     firstName: req.session.firstName,
+    lastName: req.session.lastName,
     email:     req.session.email,
     userId:    req.session.userId
   });
