@@ -59,7 +59,7 @@ let pendingCurrentBook = null;   // book waiting for a free "currently reading" 
 /* ══ STORAGE ═════════════════════════════════════════ */
 function loadState() {
   try {
-    const saved = localStorage.getItem('bookshelfState');
+    const saved = localStorage.getItem(`bookshelfState_${getCurrentUserId()}`);
     if (saved) state = JSON.parse(saved);
   } catch (e) {}
 
@@ -81,7 +81,7 @@ function loadState() {
 }
 
 function saveState() {
-  localStorage.setItem('bookshelfState', JSON.stringify(state));
+  localStorage.setItem(`bookshelfState_${getCurrentUserId()}`, JSON.stringify(state));
 }
 
 function uid() {
@@ -105,7 +105,8 @@ function toTitleCase(str) {
 }
 
 /* ══ INIT ═══════════════════════════════════════════ */
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+  await loadUser();  
   loadState();
   setGreeting();
   loadUser();
@@ -158,6 +159,9 @@ async function loadUser() {
     const user = data.user || data;
     if (!user) return;
 
+    // Store the user ID so storage functions can use it
+    window._currentUserId = user._id || user.id || user.email;
+
     const name = [user.firstName, user.lastName].filter(Boolean).join(' ') || 'Reader';
     document.getElementById('heroName').textContent  = name;
     document.getElementById('sbName').textContent    = name;
@@ -166,6 +170,10 @@ async function loadUser() {
   } catch (e) {
     console.error('Could not load account info:', e);
   }
+}
+/* Returns the current user ID for localStorage keys, or 'guest' if not logged in */
+function getCurrentUserId() {
+  return window._currentUserId || 'guest';
 }
 
 /* ══ OPEN LIBRARY API ═════════════════════════════════
