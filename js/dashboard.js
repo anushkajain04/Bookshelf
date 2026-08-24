@@ -16,13 +16,15 @@ const QUOTES = [
   '"A book is a dream you hold in your hands."',
 ];
 
-/* Open Library search queries per genre filter pill */
+/* Genre search queries per filter pill — subject: targets Google Books'
+   category taxonomy so results actually match the genre, instead of a
+   loose keyword match that returns unrelated books. */
 const GENRE_QUERIES = {
-  all:         'fiction bestseller',
-  'self-help': 'self help personal development',
-  fiction:     'fiction novel',
-  business:    'business leadership',
-  philosophy:  'philosophy',
+  all:         'subject:"fiction"',
+  'self-help': 'subject:"self-help"',
+  fiction:     'subject:"fiction"',
+  business:    'subject:"business"',
+  philosophy:  'subject:"philosophy"',
 };
 
 /* Genre options offered in the Add Book form — used to match API subjects */
@@ -43,7 +45,7 @@ let state = {
   readBooks: [],          // {id,title,author,genre,rating,notes,color,cover,totalPages,addedAt,finishedDate,finishedYear,finishedMonth}
   tbrBooks:  [],           // {id,title,author,genre,color,cover,totalPages,addedAt}
   currentlyReading: [],    // max 2: {id,title,author,genre,color,cover,totalPages,currentPage,startedAt}
-  goal: { type: 'yearly', target: 12 }
+  challenge: null          // {id,duration,target,startDate,endDate,status} — see createChallenge()
 };
 
 /* Caches so we don't refetch on every render */
@@ -57,6 +59,44 @@ let ratingCallback = null;
 let pendingCurrentBook = null;   // book waiting for a free "currently reading" slot
 
 /* ══ STORAGE ═════════════════════════════════════════ */
+/* Scores a book by how complete its data is, so when two duplicate
+   records collide we keep the better one (has a cover, a genre, a
+   rating, progress, etc.) instead of an arbitrary one. */
+function bookCompletenessScore(b) {
+  return (b.cover ? 1 : 0) + (b.genre ? 1 : 0) + (b.rating > 0 ? 1 : 0)
+       + (b.totalPages ? 1 : 0) + (b.currentPage > 0 ? 1 : 0) + (b.finishedDate ? 1 : 0);
+}
+
+/* Collapses duplicate entries (same title + author) in a shelf array
+   down to the single most-complete record. Safe to run on every load. */
+function dedupeShelf(arr) {
+  const map = new Map();
+  arr.forEach(book => {
+    const key = normalizeTitleKey(book.title) + '|' + normalizeTitleKey(book.author || '');
+    const existing = map.get(key);
+    if (!existing || bookCompletenessScore(book) > bookCompletenessScore(existing)) {
+      map.set(key, book);
+    }
+  });
+  return Array.from(map.values());
+}
+
+/* Looks across all three shelves for a book with the same title+author.
+   Used to block accidental duplicate adds (Issue: duplicate entries). */
+function findExistingBook(title, author) {
+  const key = normalizeTitleKey(title) + '|' + normalizeTitleKey(author || '');
+  const shelves = [
+    ['read', state.readBooks],
+    ['tbr', state.tbrBooks],
+    ['currentlyReading', state.currentlyReading],
+  ];
+  for (const [shelfName, arr] of shelves) {
+    const match = arr.find(b => normalizeTitleKey(b.title) + '|' + normalizeTitleKey(b.author || '') === key);
+    if (match) return { book: match, shelf: shelfName };
+  }
+  return null;
+}
+
 function loadState() {
   try {
     const saved = localStorage.getItem(`bookshelfState_${getCurrentUserId()}`);
@@ -75,9 +115,25 @@ function loadState() {
     if (typeof cr.currentPage !== 'number') cr.currentPage = 0;
   });
 
-  if (!state.goal || typeof state.goal !== 'object') state.goal = {};
-  if (state.goal.type !== 'monthly' && state.goal.type !== 'yearly') state.goal.type = 'yearly';
-  if (!state.goal.target || state.goal.target < 1) state.goal.target = 12;
+  // Collapse any duplicate entries already sitting in saved data
+  // (e.g. the same book added twice before this fix existed).
+  state.readBooks       = dedupeShelf(state.readBooks);
+  state.tbrBooks         = dedupeShelf(state.tbrBooks);
+  state.currentlyReading = dedupeShelf(state.currentlyReading);
+
+  // Migrate the old simple goal into a Reading Challenge, once.
+  if (!state.challenge || typeof state.challenge !== 'object') {
+    if (state.goal && typeof state.goal === 'object' && state.goal.target) {
+      const duration = state.goal.type === 'monthly' ? 'monthly' : 'yearly';
+      state.challenge = createChallenge(duration, state.goal.target, new Date());
+    } else {
+      state.challenge = null;
+    }
+  }
+  delete state.goal;
+
+  refreshChallengeStatus();
+  saveState();
 }
 
 function saveState() {
@@ -86,6 +142,55 @@ function saveState() {
 
 function uid() {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
+}
+
+/* ══ READING CHALLENGE ═══════════════════════════════
+   duration: 'weekly' | 'monthly' | 'yearly'
+   status:   'active' | 'completed' | 'expired' */
+function getChallengeEndDate(duration, startDate) {
+  const end = new Date(startDate);
+  if (duration === 'weekly')       end.setDate(end.getDate() + 7);
+  else if (duration === 'monthly') end.setMonth(end.getMonth() + 1);
+  else                              end.setFullYear(end.getFullYear() + 1);
+  end.setMilliseconds(end.getMilliseconds() - 1);
+  return end;
+}
+
+function createChallenge(duration, target, startDate = new Date()) {
+  const start = new Date(startDate);
+  return {
+    id: uid(),
+    duration,
+    target,
+    startDate: start.toISOString(),
+    endDate: getChallengeEndDate(duration, start).toISOString(),
+    status: 'active'
+  };
+}
+
+/* Only books finished within [startDate, endDate] count (Issue #3) */
+function countBooksInChallenge(challenge) {
+  if (!challenge) return 0;
+  const start = new Date(challenge.startDate);
+  const end   = new Date(challenge.endDate);
+  return state.readBooks.filter(b => {
+    if (!b.finishedDate) return false;
+    const d = new Date(b.finishedDate);
+    return d >= start && d <= end;
+  }).length;
+}
+
+/* Marks the current challenge completed/expired as needed. Call this
+   before any read of state.challenge so status is always current. */
+function refreshChallengeStatus() {
+  const c = state.challenge;
+  if (!c || c.status !== 'active') return;
+  const count = countBooksInChallenge(c);
+  if (count >= c.target) {
+    c.status = 'completed';
+  } else if (new Date() > new Date(c.endDate)) {
+    c.status = 'expired';
+  }
 }
 
 function escapeHtml(str) {
@@ -121,7 +226,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   initTabSwitcher();
   initLogout();
   initTabSearch();
-  initGoalEditor();
+  initChallengeEditor();
   initLimitModal();
   initRateModal();
   document.addEventListener('click', closeAllBuyMenus);
@@ -176,22 +281,104 @@ function getCurrentUserId() {
   return window._currentUserId || 'guest';
 }
 
-/* ══ OPEN LIBRARY API ═════════════════════════════════
+/* ══ BOOK SEARCH — Google Books (primary) + Open Library (fallback) ══
    Returns: array of mapped books on success,
-            [] when the API responds but finds nothing,
-            null when the request itself fails (network/CORS). */
-async function fetchBooks(query, maxResults = 12, fallbackGenre) {
-  try {
-    const randomOffset = Math.floor(Math.random() * 60);
-    const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=${maxResults}&offset=${randomOffset}&fields=title,author_name,cover_i,subject,number_of_pages_median`;
-    const res = await fetch(url);
-    if (!res.ok) throw new Error('Open Library error: ' + res.status);
-    const data = await res.json();
-    return (data.docs || []).map(d => mapDoc(d, fallbackGenre)).filter(b => b.title);
-  } catch (e) {
-    console.error('Book search failed:', e);
-    return null;
+            [] when every source responds but finds nothing,
+            null when every source's request itself fails (network/CORS).
+
+   Order: Google Books title search -> Google Books general search ->
+          Open Library title search -> Open Library general search.
+   Google Books is tried first because it handles Hindi/transliterated
+   titles and general relevance far better than Open Library. */
+async function fetchBooks(query, maxResults = 12, fallbackGenre = "General", searchType = "general") {
+    const attempts = searchType === "title"
+        ? [() => fetchFromGoogleBooks(query, maxResults, fallbackGenre, "title"),
+           () => fetchFromGoogleBooks(query, maxResults, fallbackGenre, "general"),
+           () => fetchFromOpenLibrary(query, maxResults, fallbackGenre, "title"),
+           () => fetchFromOpenLibrary(query, maxResults, fallbackGenre, "general")]
+        : [() => fetchFromGoogleBooks(query, maxResults, fallbackGenre, "general"),
+           () => fetchFromOpenLibrary(query, maxResults, fallbackGenre, "general")];
+
+    let sawSuccess = false;
+
+    for (const attempt of attempts) {
+        const result = await attempt();
+        if (result === null) continue;      // that source failed outright, try the next
+        sawSuccess = true;
+        if (result.length) return dedupeBooks(result).slice(0, maxResults);
+        // source responded but found nothing — fall through to the next source
+    }
+
+    return sawSuccess ? [] : null;
+}
+
+/* ── Google Books (primary source) ── */
+async function fetchFromGoogleBooks(query, maxResults, fallbackGenre, searchType) {
+    try {
+        const q = searchType === "title" ? `intitle:${query}` : query;
+        const url = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&maxResults=${Math.min(maxResults, 40)}`;
+
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("Google Books error");
+
+        const data = await res.json();
+        return (data.items || []).map(item => mapGoogleBooksItem(item, fallbackGenre));
+
+    } catch (e) {
+        console.error("Google Books search failed:", e);
+        return null;
+    }
+}
+
+function mapGoogleBooksItem(item, fallbackGenre) {
+  const info = item.volumeInfo || {};
+  const rawTitle  = info.title || '';
+  const rawAuthor = (info.authors && info.authors[0]) || 'Unknown Author';
+
+  let genre = fallbackGenre || 'General';
+  if (Array.isArray(info.categories)) {
+    const match = info.categories.find(c => KNOWN_GENRES.some(k => k.toLowerCase() === String(c).toLowerCase()));
+    if (match) genre = match;
+    else if (info.categories[0] && info.categories[0].length < 28) genre = info.categories[0];
   }
+
+  const images = info.imageLinks || {};
+  const cover  = (images.thumbnail || images.smallThumbnail || '').replace(/^http:/, 'https:');
+
+  return {
+    title:  toTitleCase(rawTitle),
+    author: toTitleCase(rawAuthor),
+    genre:  toTitleCase(genre),
+    cover,
+    totalPages: info.pageCount || null,
+    color:  BOOK_COLORS[Math.floor(Math.random() * BOOK_COLORS.length)]
+  };
+}
+
+/* ── Open Library (fallback source) ── */
+async function fetchFromOpenLibrary(query, maxResults, fallbackGenre, searchType) {
+    try {
+        const url = searchType === "title"
+          ? `https://openlibrary.org/search.json?title=${encodeURIComponent(query)}&limit=${maxResults}&fields=key,title,author_name,cover_i,subject,number_of_pages_median,first_publish_year`
+          : `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=${maxResults}&fields=key,title,author_name,cover_i,subject,number_of_pages_median,first_publish_year`;
+
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("Open Library error");
+
+        const data = await res.json();
+        let books = (data.docs || []).map(doc => mapDoc(doc, fallbackGenre));
+
+        if (searchType === "title") {
+            const keyword = query.toLowerCase();
+            books = books.filter(book => book.title.toLowerCase().includes(keyword));
+        }
+
+        return books.slice(0, maxResults);
+
+    } catch (e) {
+        console.error("Open Library search failed:", e);
+        return null;
+    }
 }
 
 function mapDoc(doc, fallbackGenre) {
@@ -215,12 +402,114 @@ function mapDoc(doc, fallbackGenre) {
   };
 }
 
-/* Renders a cover image if available, otherwise the title on a color block */
+/* ===== PERSONALIZED RECOMMENDATION HELPERS ===== */
+
+/* Shuffles a copy of the array (Fisher-Yates) — used to keep
+   recommendations from looking identical on every refresh. */
+function shuffleArray(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+/* Builds a pool of candidate search queries from everything the user
+   owns — Read + Currently Reading + TBR — so recommendations reflect
+   the whole library, not just one dominant genre. */
+function getRecommendationQueries() {
+    const books = [
+        ...state.readBooks,
+        ...state.tbrBooks,
+        ...state.currentlyReading
+    ];
+
+    if (books.length === 0)
+        return ["bestseller fiction"];
+
+    const genreCounts  = {};
+    const authorCounts = {};
+
+    books.forEach(book => {
+        const genre = (book.genre || "fiction").toLowerCase();
+        genreCounts[genre] = (genreCounts[genre] || 0) + 1;
+
+        if (book.author) {
+            const author = book.author.toLowerCase();
+            authorCounts[author] = (authorCounts[author] || 0) + 1;
+        }
+    });
+
+    const topGenres = Object.entries(genreCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(([g]) => `subject:"${g}"`);
+
+    const topAuthors = Object.entries(authorCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 2)
+        .map(([a]) => `inauthor:"${a}"`);
+
+    const queries = [...topGenres, ...topAuthors];
+    return queries.length ? queries : ["bestseller fiction"];
+}
+
+/* Normalizes a title for comparison — strips parenthetical notes
+   (e.g. "(Unabridged)"), subtitles after a colon/dash, and punctuation —
+   so different editions of the same book aren't treated as different
+   books (fixes duplicate entries from Google Books). */
+function normalizeTitleKey(title) {
+  return String(title || '')
+    .toLowerCase()
+    .replace(/\(.*?\)/g, '')
+    .replace(/[:\-–—].*$/, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+function dedupeBooks(books) {
+  const seen = new Set();
+  return books.filter(book => {
+    const key = normalizeTitleKey(book.title);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function removeOwnedBooks(books) {
+    const owned = new Set(
+        [
+            ...state.readBooks,
+
+            ...state.tbrBooks,
+
+            ...state.currentlyReading
+
+        ].map(book => normalizeTitleKey(book.title))
+    );
+
+    return books.filter(book =>
+        !owned.has(normalizeTitleKey(book.title))
+    );
+
+}
+
+/* Renders a cover image if available, otherwise the title on a color block.
+   If the image URL 404s or fails to load, swap it for the title text
+   instead of leaving an empty box (Issue: covers vanishing on error). */
 function coverHTML(book) {
   if (book.cover) {
-    return `<img class="cover-img" src="${book.cover}" alt="" loading="lazy" onerror="this.remove()"/>`;
+    return `<img class="cover-img" src="${book.cover}" alt="" loading="lazy" data-fallback-title="${escapeHtml(book.title)}" onerror="handleCoverError(this)"/>`;
   }
   return `<span>${escapeHtml(book.title)}</span>`;
+}
+
+function handleCoverError(img) {
+  const span = document.createElement('span');
+  span.textContent = img.dataset.fallbackTitle || '';
+  img.replaceWith(span);
 }
 
 /* ══ DASHBOARD ═══════════════════════════════════════ */
@@ -239,60 +528,82 @@ function renderDashboard() {
   document.getElementById('tabCountRead').textContent = readCount;
   document.getElementById('tabCountTBR').textContent  = tbrCount;
 
-  renderGoal();
+  renderChallenge();
   renderCurrentlyReading();
 }
 
-/* ── Reading goal (Issue #5) ──
-   Editable Monthly/Yearly target. Progress counts only books finished
-   within the current period, so backdating old books doesn't skew it. */
-function renderGoal() {
-  const { type, target } = state.goal;
-  const now = new Date();
-  let count;
+/* ── Reading Challenge (Issue #4) ──
+   Weekly / monthly / yearly challenges with a start/end date, a status
+   (active/completed/expired), and a manual restart. Progress counts
+   only books finished within the challenge's own date window, so
+   backdating old books doesn't skew it (Issue #3). */
+function renderChallenge() {
+  refreshChallengeStatus();
+  saveState();
 
-  if (type === 'monthly') {
-    count = state.readBooks.filter(b => {
-      if (!b.finishedDate) return false;
-      const d = new Date(b.finishedDate);
-      return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
-    }).length;
-  } else {
-    count = state.readBooks.filter(b => b.finishedYear === now.getFullYear()).length;
+  const label   = document.getElementById('goalLabel');
+  const pct     = document.getElementById('goalPct');
+  const fill    = document.getElementById('goalFill');
+  const status  = document.getElementById('goalStatus');
+  const restart = document.getElementById('goalRestartBtn');
+  const c       = state.challenge;
+
+  if (!c) {
+    if (label)  label.textContent  = 'No active reading challenge';
+    if (pct)    pct.textContent    = 'Start one to track your progress';
+    if (status) { status.textContent = ''; delete status.dataset.status; }
+    if (restart) restart.classList.add('hidden');
+    setTimeout(() => { if (fill) fill.style.width = '0%'; }, 300);
+    return;
   }
 
-  const pct = target > 0 ? Math.min(100, Math.round((count / target) * 100)) : 0;
-  document.getElementById('goalLabel').textContent = type === 'monthly' ? 'Monthly reading goal' : 'Yearly reading goal';
-  document.getElementById('goalPct').textContent   = `${count} / ${target} books`;
+  const count = countBooksInChallenge(c);
+  const pctVal = c.target > 0 ? Math.min(100, Math.round((count / c.target) * 100)) : 0;
+  const durationLabel = { weekly: 'Weekly', monthly: 'Monthly', yearly: 'Yearly' }[c.duration] || 'Reading';
+  const statusLabel   = { active: 'In progress', completed: 'Completed 🎉', expired: 'Expired' }[c.status] || '';
 
-  setTimeout(() => {
-    const fill = document.getElementById('goalFill');
-    if (fill) fill.style.width = pct + '%';
-  }, 300);
+  if (label)  label.textContent  = `${durationLabel} reading challenge`;
+  if (pct)    pct.textContent    = `${count} / ${c.target} books`;
+  if (status) { status.textContent = statusLabel; status.dataset.status = c.status; }
+  if (restart) restart.classList.toggle('hidden', c.status === 'active');
+
+  setTimeout(() => { if (fill) fill.style.width = pctVal + '%'; }, 300);
 }
 
-function initGoalEditor() {
-  const form    = document.getElementById('goalEditForm');
-  const editBtn = document.getElementById('goalEditBtn');
-  const typeSel = document.getElementById('goalType');
-  const target  = document.getElementById('goalTarget');
+function initChallengeEditor() {
+  const form      = document.getElementById('goalEditForm');
+  const editBtn   = document.getElementById('goalEditBtn');
+  const typeSel   = document.getElementById('goalType');      // options: weekly / monthly / yearly
+  const target    = document.getElementById('goalTarget');
+  const restartBtn = document.getElementById('goalRestartBtn');
 
   editBtn.addEventListener('click', () => {
-    typeSel.value = state.goal.type;
-    target.value  = state.goal.target;
+    typeSel.value = state.challenge ? state.challenge.duration : 'monthly';
+    target.value  = state.challenge ? state.challenge.target : 12;
     form.classList.toggle('hidden');
   });
 
   document.getElementById('goalSaveBtn').addEventListener('click', () => {
     let t = parseInt(target.value, 10);
     if (isNaN(t) || t < 1) t = 1;
-    state.goal = { type: typeSel.value, target: t };
+    state.challenge = createChallenge(typeSel.value, t);
     saveState();
-    renderGoal();
+    renderChallenge();
     renderStats();
     form.classList.add('hidden');
-    showToast('Reading goal updated!');
+    showToast('Reading challenge started!');
   });
+
+  if (restartBtn) {
+    restartBtn.addEventListener('click', () => {
+      if (!state.challenge) return;
+      state.challenge = createChallenge(state.challenge.duration, state.challenge.target);
+      saveState();
+      renderChallenge();
+      renderStats();
+      showToast('Reading challenge restarted!');
+    });
+  }
 }
 
 /* ── Currently reading — up to 2 books (Issues #8 & #9) ── */
@@ -417,6 +728,7 @@ function markFinished(idx) {
     finalizeAsRead(b, rating);
     saveState();
     refreshAll();
+    renderRecommendations("all");
     showToast(`"${b.title}" marked as finished!`);
   });
 }
@@ -427,6 +739,7 @@ function moveCRToTBR(idx) {
   state.tbrBooks.unshift(toTBREntry(book));
   saveState();
   refreshAll();
+  renderRecommendations("all");
   showToast(`"${book.title}" moved to TBR`);
 }
 
@@ -435,6 +748,7 @@ function removeCR(idx) {
   if (!book) return;
   saveState();
   refreshAll();
+  renderRecommendations("all");
   showToast(`"${book.title}" removed`);
 }
 
@@ -460,6 +774,7 @@ function tryAddCurrentlyReading(book) {
     state.currentlyReading.push({ ...book, currentPage: 0, startedAt: Date.now() });
     saveState();
     refreshAll();
+    renderRecommendations("all");
     showToast(`Started reading "${book.title}"`);
     return;
   }
@@ -529,6 +844,7 @@ function addPendingBookAndClose() {
   }
   saveState();
   refreshAll();
+  renderRecommendations("all");
   document.getElementById('limitModalBackdrop').classList.remove('open');
 }
 
@@ -581,27 +897,35 @@ function initRateModal() {
   });
 }
 
-/* ══ RECOMMENDATIONS (Open Library) ══════════════════ */
-async function renderRecommendations(genre) {
-  const grid = document.getElementById('recGrid');
-  grid.innerHTML = `<p class="grid-msg">Loading recommendations…</p>`;
+/* ══ RECOMMENDATIONS (Google Books + Open Library) ══════════════════
+   Personalized from Read + Currently Reading + TBR shelves (Issue #2).
+   A genre pill (not "all") pins the query to that genre; otherwise we
+   draw from a shuffled mix of the user's top genres/authors, and
+   shuffle the merged, de-duped, owned-book-filtered result again
+   before display — so every refresh looks different. */
+async function renderRecommendations(genre){
+    const grid = document.getElementById("recGrid");
+    grid.innerHTML = `<p class="grid-msg">Loading recommendations...</p>`;
 
-  const books = await fetchBooks(GENRE_QUERIES[genre] || GENRE_QUERIES.all, 12, genre);
-  
-  if (!books) {
-    books = await fetchBooks(GENRE_QUERIES[genre] || GENRE_QUERIES.all, 12, genre);
-    if (books) recCache[genre] = books;
-  }
+    const queries = (genre && genre !== 'all' && GENRE_QUERIES[genre])
+        ? [GENRE_QUERIES[genre]]
+        : shuffleArray(getRecommendationQueries()).slice(0, 2);
 
-  if (books === null) {
-    grid.innerHTML = `<p class="grid-msg">Couldn't reach the book service — check your connection. <button class="retry-btn" onclick="renderRecommendations('${genre}')">Retry</button></p>`;
-    return;
-  }
-  if (!books.length) {
-    grid.innerHTML = `<p class="grid-msg">No recommendations found for this genre yet.</p>`;
-    return;
-  }
-  renderRecCards(books);
+    const results = await Promise.all(queries.map(q => fetchBooks(q, 20)));
+
+    if (results.every(r => r === null)) {
+        grid.innerHTML = `<p class="grid-msg">Couldn't load recommendations.</p>`;
+        return;
+    }
+
+    // Merge query results, de-duping by normalized title
+    let books = dedupeBooks(results.flatMap(r => r || []));
+
+    const filtered = removeOwnedBooks(books);
+    // If filtering removed everything, show the original list instead.
+    books = filtered.length ? filtered : books;
+
+    renderRecCards(shuffleArray(books).slice(0, 12));
 }
 
 function renderRecCards(books) {
@@ -615,7 +939,8 @@ function renderRecCards(books) {
     card.innerHTML = `
       <div class="rec-cover" style="background:${book.color}">
         ${coverHTML(book)}
-        <span class="rec-genre-tag">${escapeHtml(book.genre)}</span>
+        <span class="rec-genre-tag">Recommended for you
+        </span>
       </div>
       <div class="rec-body">
         <p class="rec-title">${escapeHtml(book.title)}</p>
@@ -632,7 +957,8 @@ function renderRecCards(books) {
 
 function addToTBRFromRec(book, event) {
   const btn = event.currentTarget;
-  const already = state.tbrBooks.find(b => b.title === book.title) || state.readBooks.find(b => b.title === book.title);
+  const already = state.tbrBooks.find(b => normalizeTitleKey(b.title) === normalizeTitleKey(book.title))
+    || state.readBooks.find(b => normalizeTitleKey(b.title) === normalizeTitleKey(book.title));
   if (already) { showToast(`"${book.title}" is already in your library`); return; }
 
   state.tbrBooks.unshift({
@@ -641,6 +967,7 @@ function addToTBRFromRec(book, event) {
   });
   saveState();
   refreshAll();
+  renderRecommendations("all");
 
   btn.textContent = '✓';
   btn.style.background = 'var(--green)';
@@ -842,6 +1169,7 @@ function removeBook(id, list) {
   const book = arr.splice(idx, 1)[0];
   saveState();
   refreshAll();
+  renderRecommendations("all");
   showToast(`"${book.title}" removed`);
 }
 
@@ -857,6 +1185,7 @@ function moveToRead(id) {
     finalizeAsRead(b, rating);
     saveState();
     refreshAll();
+    renderRecommendations("all");
     showToast(`"${b.title}" marked as read!`);
   });
 }
@@ -869,6 +1198,7 @@ function moveToTBR(id) {
   state.tbrBooks.unshift(toTBREntry(book));
   saveState();
   refreshAll();
+  renderRecommendations("all");
   showToast(`"${book.title}" moved to TBR`);
 }
 
@@ -876,30 +1206,39 @@ function moveToTBR(id) {
 function renderStats() {
   const grid = document.getElementById('statsGrid');
   if (!grid) return;
-  const thisYear  = new Date().getFullYear();
-  const yearBooks = state.readBooks.filter(b => b.finishedYear === thisYear);
   const ratings   = state.readBooks.filter(b => b.rating > 0).map(b => b.rating);
   const avg       = ratings.length ? (ratings.reduce((a,b) => a+b,0)/ratings.length).toFixed(1) : '—';
+
+  // Only count books that actually have a genre set — books added
+  // without picking one were skewing "most read genre" toward blank.
   const genreCounts = {};
-  state.readBooks.forEach(b => { genreCounts[b.genre] = (genreCounts[b.genre]||0) + 1; });
+  state.readBooks.forEach(b => {
+    if (!b.genre) return;
+    genreCounts[b.genre] = (genreCounts[b.genre] || 0) + 1;
+  });
   const topGenre = Object.entries(genreCounts).sort((a,b) => b[1]-a[1])[0];
-  const goalLabel = state.goal.type === 'monthly' ? 'this month' : `${thisYear}`;
-  const goalCount = state.goal.type === 'monthly'
-    ? state.readBooks.filter(b => {
-        if (!b.finishedDate) return false;
-        const d = new Date(b.finishedDate);
-        const now = new Date();
-        return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
-      }).length
-    : yearBooks.length;
+
+  refreshChallengeStatus();
+  const challenge = state.challenge;
+  const challengeCount = challenge ? countBooksInChallenge(challenge) : 0;
+  const challengeDurationLabel = challenge
+    ? ({ weekly: 'Weekly', monthly: 'Monthly', yearly: 'Yearly' }[challenge.duration] || 'Reading')
+    : null;
+  const challengeSub = challenge
+    ? `${challengeDurationLabel} challenge — ${challenge.status}`
+    : 'No active challenge';
 
   const cards = [
     { val: state.readBooks.length, label:"Total books read",   sub:"All time" },
     { val: state.tbrBooks.length,  label:"Books in TBR queue",  sub:"Waiting to be read" },
-    { val: yearBooks.length,       label:"Read this year",      sub:`${thisYear}` },
+    // "Read this year" was unreliable once Finished Date started
+    // defaulting to blank — swapped for progress within the active
+    // challenge instead, which is what "books read till now" means
+    // in a weekly/monthly/yearly system.
+    { val: challenge ? challengeCount : state.readBooks.length, label: challenge ? `Read this ${challenge.duration.replace('ly','')}` : "Books read till now", sub: challenge ? challengeSub : "All time" },
     { val: avg === '—' ? avg : avg+'★', label:"Average rating", sub:"From books you've rated" },
-    { val: topGenre ? topGenre[1] : 0, label: topGenre ? topGenre[0] : 'Top genre', sub: topGenre ? "Most read genre" : "No genre yet" },
-    { val: Math.max(0, state.goal.target - goalCount), label:"Books to goal", sub:`${state.goal.type === 'monthly' ? 'Monthly' : 'Yearly'} goal — ${goalLabel}` },
+    { val: topGenre ? topGenre[1] : 0, label: topGenre ? topGenre[0] : 'No genre data yet', sub: topGenre ? "Most read genre" : "Add genres when saving books" },
+    { val: challenge ? Math.max(0, challenge.target - challengeCount) : '—', label:"Books to goal", sub: challengeSub },
   ];
 
   grid.innerHTML = '';
@@ -1007,7 +1346,7 @@ function initSearch() {
       }
       const grid = document.getElementById('recGrid');
       grid.innerHTML = `<p class="grid-msg">Searching…</p>`;
-      const results = await fetchBooks(q, 12);
+      const results = await fetchBooks(q, 5);
       if (results === null) {
         grid.innerHTML = `<p class="grid-msg">Search failed — check your connection. <button class="retry-btn" onclick="document.getElementById('searchInput').dispatchEvent(new Event('input'))">Retry</button></p>`;
         return;
@@ -1098,14 +1437,26 @@ function initModal() {
   closeBtn.addEventListener('click', close);
   backdrop.addEventListener('click', e => { if (e.target === backdrop) close(); });
 
+  document.getElementById("closeSearchModal").addEventListener("click",()=>{
+    document.getElementById("searchModal").classList.remove("open");
+  });
+
+  document.getElementById("searchModal").addEventListener("click",function(e){
+
+    if(e.target===this){
+        this.classList.remove("open");
+    }
+
+});
+
   // Show date-finished + rating only when status = "I've read this" (Issue #5 & #10)
   function syncFormToStatus() {
     const isRead = statusSel.value === 'READ';
     dateField.classList.toggle('hidden', !isRead);
     ratingRow.classList.toggle('hidden', !isRead);
-    if (isRead && !document.getElementById('mDateFinished').value) {
-      document.getElementById('mDateFinished').value = new Date().toISOString().slice(0, 10);
-    }
+    // Finished Date stays blank by default (Issue #3) — backdating an old
+    // book to "Read" should not silently count it toward the current
+    // reading challenge. The user can still set a date explicitly.
   }
   statusSel.addEventListener('change', syncFormToStatus);
   syncFormToStatus();
@@ -1115,30 +1466,18 @@ function initModal() {
     const q = document.getElementById('autoFillInput').value.trim();
     if (!q) return;
     showToast('Searching…');
-    const results = await fetchBooks(q, 1);
-
+    const results = await fetchBooks(q, 5, "General", "title");
     if (results === null) {
       showToast('Search failed — check your connection, or fill details manually');
       return;
     }
     if (results.length) {
-      const found = results[0];
-      document.getElementById('mTitle').value  = found.title;
-      document.getElementById('mAuthor').value = found.author;
-      if (found.totalPages) document.getElementById('mPages').value = found.totalPages;
-      selectedCover = found.cover || '';
-
-      const genreSelect = document.getElementById('mGenre');
-      const match = Array.from(genreSelect.options).find(
-        o => o.value.toLowerCase() === (found.genre || '').toLowerCase()
-      );
-      if (match) genreSelect.value = match.value;
-
-      showToast('Book details auto-filled!');
+      showBookSelection(results);
     } else {
       selectedCover = '';
       showToast('Not found — fill details manually');
     }
+
   });
 
   // Save
@@ -1153,26 +1492,37 @@ function initModal() {
 
     if (!title) { showToast('Please enter a book title'); return; }
 
+    const dupe = findExistingBook(title, author);
+    if (dupe) {
+      const shelfName = { read: 'Books Read', tbr: 'TBR list', currentlyReading: 'Currently Reading' }[dupe.shelf];
+      showToast(`"${title}" is already in your ${shelfName} shelf`);
+      return;
+    }
+
     const color = BOOK_COLORS[Math.floor(Math.random() * BOOK_COLORS.length)];
     const book  = { id: uid(), title, author, genre, color, cover: selectedCover, totalPages, addedAt: Date.now(), notes };
 
     if (status === 'READ') {
       const dateVal = document.getElementById('mDateFinished').value;
-      const finishedDate = dateVal ? new Date(dateVal) : new Date();
+      // Blank date -> book doesn't count toward the reading challenge
+      // until the user sets a finished date (Issue #3).
+      const finishedDate = dateVal ? new Date(dateVal) : null;
       state.readBooks.unshift({
         ...book, rating: currentRating,
-        finishedDate: finishedDate.toISOString(),
-        finishedYear: finishedDate.getFullYear(),
-        finishedMonth: finishedDate.getMonth()
+        finishedDate: finishedDate ? finishedDate.toISOString() : null,
+        finishedYear: finishedDate ? finishedDate.getFullYear() : null,
+        finishedMonth: finishedDate ? finishedDate.getMonth() : null
       });
       saveState();
       refreshAll();
+      renderRecommendations("all");
       showToast(`"${title}" added to your shelf!`);
       resetAndClose();
     } else if (status === 'TBR') {
       state.tbrBooks.unshift(book);
       saveState();
       refreshAll();
+      renderRecommendations("all");
       showToast(`"${title}" added to TBR!`);
       resetAndClose();
     } else {
@@ -1197,6 +1547,71 @@ function initModal() {
     close();
   }
 }
+
+function showBookSelection(results){
+
+    window.searchResults = results;
+
+    const body = document.getElementById("searchModalBody");
+
+    body.innerHTML = "";
+
+    results.forEach((book,index)=>{
+
+        body.innerHTML += `
+
+        <div class="search-item">
+
+            <img src="${book.cover}" alt="">
+
+            <div class="search-item-info">
+
+                <h4>${book.title}</h4>
+
+                <p>${book.author}</p>
+
+                <p>${book.genre}</p>
+
+            </div>
+
+            <button onclick="selectBook(${index})">
+
+                Select
+
+            </button>
+
+        </div>
+
+        `;
+
+    });
+
+    document
+        .getElementById("searchModal")
+        .classList.add("open");
+
+}
+function selectBook(index){
+
+    const book = window.searchResults[index];
+
+    document.getElementById("mTitle").value = book.title;
+
+    document.getElementById("mAuthor").value = book.author;
+
+    document.getElementById("mGenre").value = book.genre;
+
+    document.getElementById("mPages").value =
+        book.totalPages || "";
+
+    document
+        .getElementById("searchModal")
+        .classList.remove("open");
+
+    showToast("Book selected!");
+
+}
+
 
 /* ══ STAR PICKER (Add Book modal) ════════════════════ */
 function initStarPicker() {

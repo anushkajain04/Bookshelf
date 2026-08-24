@@ -781,6 +781,8 @@ body {
   cursor: pointer; transition: all var(--tr); font-family: 'Plus Jakarta Sans', sans-serif;
 }
 .retry-btn:hover { background: var(--amber-bg); border-color: var(--amber); }
+
+.empty-state {
   text-align: center; 
   padding: 60px 20px;
   display: flex; 
@@ -999,7 +1001,8 @@ body {
 }
 .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
 
-/*signup page*/
+/*signup page
+
 .modal-backdrop {
   position: fixed;
   top: 0;
@@ -1011,12 +1014,15 @@ body {
   justify-content: center;
   align-items: center;
   z-index: 9999;
-}
+}*/
 
 .modal-backdrop.active {
   display: flex;
 }
 
+/* Commented because it conflicts with the Add Book modal */
+
+/*
 .modal {
   background: #ffffff;
   width: 90%;
@@ -1025,8 +1031,8 @@ body {
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
   overflow: hidden;
   animation: modalFade 0.25s ease;
-}
-
+} 
+*/
 .modal-head {
   display: flex;
   justify-content: space-between;
@@ -1141,4 +1147,101 @@ body {
   .hstat { padding: 0 12px; }
   .tab-btn { padding: 8px 14px 12px; font-size: 13px; }
   .buy-menu { right: 0; left: auto; }
+}
+
+/* ===========================
+   Search Modal
+=========================== */
+
+.search-modal{
+    position:fixed;
+    inset:0;
+    display:none;
+    justify-content:center;
+    align-items:center;
+    background:rgba(0,0,0,.55);
+    z-index:9999;
+}
+
+.search-modal.open{
+    display:flex;
+}
+
+.search-modal-content{
+    width:600px;
+    max-height:75vh;
+    overflow-y:auto;
+    background:#fff;
+    border-radius:16px;
+    padding:20px;
+    box-shadow:0 15px 40px rgba(0,0,0,.2);
+}
+
+.search-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:20px;
+}
+
+.search-header h3{
+    margin:0;
+}
+
+#closeSearchModal{
+    border:none;
+    background:none;
+    font-size:28px;
+    cursor:pointer;
+}
+
+.search-item{
+    display:flex;
+    gap:15px;
+    align-items:center;
+    border:1px solid #ddd;
+    border-radius:12px;
+    padding:12px;
+    margin-bottom:12px;
+    cursor:pointer;
+    transition:.2s;
+}
+
+.search-item:hover{
+    background:#f8f8f8;
+    border-color:#b8860b;
+}
+
+.search-item img{
+    width:60px;
+    height:90px;
+    object-fit:cover;
+    border-radius:8px;
+}
+
+.search-item-info{
+    flex:1;
+}
+
+.search-item-info h4{
+    margin:0;
+    font-size:17px;
+}
+
+.search-item-info p{
+    margin:5px 0;
+    color:#666;
+}
+
+.search-item button{
+    background:#2b2118;
+    color:#fff;
+    border:none;
+    border-radius:8px;
+    padding:8px 16px;
+    cursor:pointer;
+}
+
+.search-item button:hover{
+    background:#3b2d21;
 }

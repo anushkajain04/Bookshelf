@@ -120,14 +120,17 @@
           <div class="goal-label-row">
             <span class="goal-txt" id="goalLabel">Reading goal</span>
             <span class="goal-pct" id="goalPct">0 / 12 books</span>
+            <span class="goal-status" id="goalStatus"></span>
             <button class="goal-edit-btn" id="goalEditBtn" title="Edit goal">✎</button>
           </div>
           <div class="goal-track"><div class="goal-fill" id="goalFill" style="width:0%"></div></div>
+          <button class="goal-restart-btn hidden" id="goalRestartBtn">Restart Challenge</button>
           <!-- Goal edit form (was missing from original HTML) -->
           <div class="goal-edit-form hidden" id="goalEditForm">
             <select id="goalType">
-              <option value="yearly">Yearly goal</option>
+              <option value="weekly">Weekly goal</option>
               <option value="monthly">Monthly goal</option>
+              <option value="yearly">Yearly goal</option>
             </select>
             <input type="number" id="goalTarget" min="1" max="365" placeholder="e.g. 24"/>
             <button class="goal-save-btn" id="goalSaveBtn">Save</button>
@@ -387,6 +390,24 @@
       </div>
     </div>
   </div>
+  <!-- Search Result Modal -->
+<div id="searchModal" class="search-modal">
+
+    <div class="search-modal-content">
+
+        <div class="search-header">
+
+            <h3>Select the correct book</h3>
+
+            <button id="closeSearchModal">&times;</button>
+
+        </div>
+
+        <div id="searchModalBody"></div>
+
+    </div>
+
+</div>
 
   <script src="/js/dashboard.js"></script>
 </body>

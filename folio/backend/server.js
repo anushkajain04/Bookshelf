@@ -16,6 +16,7 @@ const app  = express();
 const PORT = process.env.PORT || 3000;
 
 // ── 1. Connect to MongoDB FIRST ─────────────────────────────
+console.log(process.env.MONGO_URI);
 connectDB();
 
 // ── 2. Work out where your HTML/CSS/JS files live ───────────
